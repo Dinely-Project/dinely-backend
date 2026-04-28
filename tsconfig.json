@@ -1,11 +1,11 @@
 {
   "compilerOptions": {
-    "rootDir": "./src",
+    "rootDir": ".",
     "outDir": "./dist",
     "module": "commonjs",
     "target": "es2020",
     "lib": ["es2020"],
-    "types": ["node"],
+    "types": ["jest", "node"],
     "sourceMap": true,
     "declaration": true,
     "strict": true,
@@ -13,8 +13,10 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    "moduleDetection": "force"
+    "moduleDetection": "force",
+      "ignoreDeprecations": "6.0"
+
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "testing/**/*"],
   "exclude": ["node_modules", "dist"]
 }
