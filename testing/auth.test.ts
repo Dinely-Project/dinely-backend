@@ -316,6 +316,34 @@ describe('POST /api/auth/login', () => {
     assertNoPasswordHash(body.user);
   });
 
+  test('Deactivated user login attempt → 401', async () => {
+    const email = uniqueEmail('login-deactivated');
+    const password = 'Password1';
+    const passwordHash = await hash(password, 10);
+    const user = await insertUser({
+      name: 'Deactivated Login',
+      email,
+      password_hash: passwordHash,
+      role: 'CUSTOMER',
+      status: 'DEACTIVATED',
+      employee_role: null,
+      employee_level: null,
+      salary: null,
+    });
+
+    testEmails.push(email);
+    createdUserIds.push(user.id);
+
+    const response = await request(app).post('/api/auth/login').send({
+      email,
+      password,
+    });
+
+    expect(response.status).toBe(401);
+    const body = response.body as { message?: string };
+    expect(typeof body.message).toBe('string');
+  });
+
   test('Wrong password → 401', async () => {
     const response = await request(app).post('/api/auth/login').send({
       email: 'admin@dinely.com',
@@ -852,6 +880,510 @@ describe('JWT Middleware — Token Validation', () => {
 
     expect(response.status).toBe(401);
     expect((response.body as Record<string, unknown>).password_hash).toBeUndefined();
+  });
+});
+
+let roleTestUserId = '';
+
+describe('GET /api/admin/users', () => {
+  let staffToken = '';
+
+  beforeAll(async () => {
+    const response = await request(app).post('/api/auth/login').send({
+      email: 'staff@test.com',
+      password: 'Password1',
+    });
+
+    staffToken = response.body.token;
+  });
+
+  test('Valid admin token → 200 + array of users (no password_hash on any item)', async () => {
+    const response = await request(app)
+      .get('/api/admin/users')
+      .set('Authorization', `Bearer ${makeAdminToken()}`);
+
+    expect(response.status).toBe(200);
+    const body = response.body as ApiResponse<SafeUser[]>;
+    expect(Array.isArray(body.data)).toBe(true);
+
+    const users = body.data ?? [];
+    users.forEach((user) => assertNoPasswordHash(user));
+  });
+
+  test('Filter by role=EMPLOYEE → 200 + all returned users have role EMPLOYEE', async () => {
+    const response = await request(app)
+      .get('/api/admin/users')
+      .query({ role: 'EMPLOYEE' })
+      .set('Authorization', `Bearer ${makeAdminToken()}`);
+
+    expect(response.status).toBe(200);
+    const body = response.body as ApiResponse<SafeUser[]>;
+    expect(Array.isArray(body.data)).toBe(true);
+
+    const users = body.data ?? [];
+    expect(users.every((user) => user.role === 'EMPLOYEE')).toBe(true);
+  });
+
+  test('No token → 401', async () => {
+    const response = await request(app).get('/api/admin/users');
+
+    expect(response.status).toBe(401);
+  });
+
+  test('Non-admin token (STAFF) → 403', async () => {
+    const response = await request(app)
+      .get('/api/admin/users')
+      .set('Authorization', `Bearer ${staffToken}`);
+
+    expect(response.status).toBe(403);
+  });
+});
+
+describe('GET /api/admin/users/:id', () => {
+  let staffToken = '';
+
+  beforeAll(async () => {
+    const response = await request(app).post('/api/auth/login').send({
+      email: 'staff@test.com',
+      password: 'Password1',
+    });
+
+    staffToken = response.body.token;
+  });
+
+  test('Valid id → 200 + correct user (no password_hash)', async () => {
+    const response = await request(app)
+      .get(`/api/admin/users/${adminId}`)
+      .set('Authorization', `Bearer ${makeAdminToken()}`);
+
+    expect(response.status).toBe(200);
+    const body = response.body as ApiResponse<SafeUser>;
+    expect(body.data?.id).toBe(adminId);
+    assertNoPasswordHash(body.data);
+  });
+
+  test('Non-existent id → 404', async () => {
+    const response = await request(app)
+      .get('/api/admin/users/00000000-0000-0000-0000-000000000000')
+      .set('Authorization', `Bearer ${makeAdminToken()}`);
+
+    expect(response.status).toBe(404);
+  });
+
+  test('No token → 401', async () => {
+    const response = await request(app).get(`/api/admin/users/${adminId}`);
+
+    expect(response.status).toBe(401);
+  });
+
+  test('Non-admin token → 403', async () => {
+    const response = await request(app)
+      .get(`/api/admin/users/${adminId}`)
+      .set('Authorization', `Bearer ${staffToken}`);
+
+    expect(response.status).toBe(403);
+  });
+});
+
+describe('PATCH /api/admin/users/:id/status', () => {
+  let statusTestUserId = '';
+  let statusTestEmail = '';
+  const statusTestPassword = 'Password1';
+
+  beforeAll(async () => {
+    statusTestEmail = uniqueEmail('admin-status');
+    const passwordHash = await hash(statusTestPassword, 10);
+    const user = await insertUser({
+      name: 'Admin Status User',
+      email: statusTestEmail,
+      password_hash: passwordHash,
+      role: 'EMPLOYEE',
+      status: 'ACTIVE',
+      employee_role: 'CHEF',
+      employee_level: 1,
+      salary: expectedChefSalary,
+    });
+
+    statusTestUserId = user.id;
+    testEmails.push(statusTestEmail);
+    createdUserIds.push(user.id);
+  });
+
+  test('Deactivate user → 200 + status is DEACTIVATED', async () => {
+    const response = await request(app)
+      .patch(`/api/admin/users/${statusTestUserId}/status`)
+      .set('Authorization', `Bearer ${makeAdminToken()}`)
+      .send({ status: 'DEACTIVATED' });
+
+    expect(response.status).toBe(200);
+    const body = response.body as ApiResponse<SafeUser>;
+    expect(body.data?.status).toBe('DEACTIVATED');
+  });
+
+  test('Activate user → 200 + status is ACTIVE', async () => {
+    const response = await request(app)
+      .patch(`/api/admin/users/${statusTestUserId}/status`)
+      .set('Authorization', `Bearer ${makeAdminToken()}`)
+      .send({ status: 'ACTIVE' });
+
+    expect(response.status).toBe(200);
+    const body = response.body as ApiResponse<SafeUser>;
+    expect(body.data?.status).toBe('ACTIVE');
+  });
+
+  test('Deactivated user cannot login → 401', async () => {
+    const deactivateResponse = await request(app)
+      .patch(`/api/admin/users/${statusTestUserId}/status`)
+      .set('Authorization', `Bearer ${makeAdminToken()}`)
+      .send({ status: 'DEACTIVATED' });
+
+    expect(deactivateResponse.status).toBe(200);
+
+    const response = await request(app).post('/api/auth/login').send({
+      email: statusTestEmail,
+      password: statusTestPassword,
+    });
+
+    expect(response.status).toBe(401);
+  });
+
+  test('Invalid status value → 400', async () => {
+    const response = await request(app)
+      .patch(`/api/admin/users/${statusTestUserId}/status`)
+      .set('Authorization', `Bearer ${makeAdminToken()}`)
+      .send({ status: 'PENDING' });
+
+    expect(response.status).toBe(400);
+  });
+
+  test('Non-existent user → 404', async () => {
+    const response = await request(app)
+      .patch('/api/admin/users/00000000-0000-0000-0000-000000000000/status')
+      .set('Authorization', `Bearer ${makeAdminToken()}`)
+      .send({ status: 'ACTIVE' });
+
+    expect(response.status).toBe(404);
+  });
+
+  test('No token → 401', async () => {
+    const response = await request(app)
+      .patch(`/api/admin/users/${statusTestUserId}/status`)
+      .send({ status: 'ACTIVE' });
+
+    expect(response.status).toBe(401);
+  });
+});
+
+describe('PATCH /api/admin/users/:id/role', () => {
+  let roleTestEmail = '';
+  const roleTestPassword = 'Password1';
+  let serverLevel1Salary = 0;
+  let serverLevel2Salary = 0;
+  const createdServerConfigIds: string[] = [];
+
+  beforeAll(async () => {
+    const serverL1 = await fetchRoleSalaryConfig('SERVER', 1);
+    if (!serverL1) {
+      const created = await insertRoleSalaryConfig('SERVER', 1, 36000, adminId);
+      createdServerConfigIds.push(created.id);
+      serverLevel1Salary = normalizeSalary(created.base_salary);
+    } else {
+      serverLevel1Salary = normalizeSalary(serverL1.base_salary);
+    }
+
+    const serverL2 = await fetchRoleSalaryConfig('SERVER', 2);
+    if (!serverL2) {
+      const created = await insertRoleSalaryConfig('SERVER', 2, 42000, adminId);
+      createdServerConfigIds.push(created.id);
+      serverLevel2Salary = normalizeSalary(created.base_salary);
+    } else {
+      serverLevel2Salary = normalizeSalary(serverL2.base_salary);
+    }
+
+    roleTestEmail = uniqueEmail('admin-role');
+    const passwordHash = await hash(roleTestPassword, 10);
+    const user = await insertUser({
+      name: 'Admin Role User',
+      email: roleTestEmail,
+      password_hash: passwordHash,
+      role: 'EMPLOYEE',
+      status: 'ACTIVE',
+      employee_role: 'CHEF',
+      employee_level: 1,
+      salary: expectedChefSalary,
+    });
+
+    roleTestUserId = user.id;
+    testEmails.push(roleTestEmail);
+    createdUserIds.push(user.id);
+  });
+
+  afterAll(async () => {
+    if (createdServerConfigIds.length > 0) {
+      const { error } = await supabase
+        .from('role_salary_config')
+        .delete()
+        .in('id', createdServerConfigIds);
+
+      if (error) {
+        throw new Error(`Failed to delete server salary config: ${error.message}`);
+      }
+    }
+  });
+
+  test('Change role (CHEF→SERVER L1) → 200 + salary recalculated + trigger_type ROLE_CHANGE in salary_history', async () => {
+    const response = await request(app)
+      .patch(`/api/admin/users/${roleTestUserId}/role`)
+      .set('Authorization', `Bearer ${makeAdminToken()}`)
+      .send({ employee_role: 'SERVER', employee_level: 1 });
+
+    expect(response.status).toBe(200);
+    const body = response.body as ApiResponse<SafeUser>;
+    expect(body.data?.employee_role).toBe('SERVER');
+    const salaryRaw = body.data?.salary;
+    expect(salaryRaw).toBeDefined();
+    const salary = normalizeSalary(salaryRaw as SalaryValue);
+    expect(salary).toBe(serverLevel1Salary);
+
+    const { data, error } = await supabase
+      .from('salary_history')
+      .select('*')
+      .eq('employee_id', roleTestUserId)
+      .order('changed_at', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      throw new Error(`Failed to fetch salary history: ${error.message}`);
+    }
+
+    const latest = data && data[0];
+    expect(latest?.trigger_type).toBe('ROLE_CHANGE');
+  });
+
+  test('Change level only (SERVER L1→L2) → 200 + salary recalculated + trigger_type LEVEL_CHANGE in salary_history', async () => {
+    const response = await request(app)
+      .patch(`/api/admin/users/${roleTestUserId}/role`)
+      .set('Authorization', `Bearer ${makeAdminToken()}`)
+      .send({ employee_role: 'SERVER', employee_level: 2 });
+
+    expect(response.status).toBe(200);
+    const body = response.body as ApiResponse<SafeUser>;
+    const salaryRaw = body.data?.salary;
+    expect(salaryRaw).toBeDefined();
+    const salary = normalizeSalary(salaryRaw as SalaryValue);
+    expect(salary).toBe(serverLevel2Salary);
+
+    const { data, error } = await supabase
+      .from('salary_history')
+      .select('*')
+      .eq('employee_id', roleTestUserId)
+      .order('changed_at', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      throw new Error(`Failed to fetch salary history: ${error.message}`);
+    }
+
+    const latest = data && data[0];
+    expect(latest?.trigger_type).toBe('LEVEL_CHANGE');
+  });
+
+  test('Change to GENERAL (level 0) → 200 + employee_level is null in response + salary is 40000', async () => {
+    const response = await request(app)
+      .patch(`/api/admin/users/${roleTestUserId}/role`)
+      .set('Authorization', `Bearer ${makeAdminToken()}`)
+      .send({ employee_role: 'GENERAL', employee_level: 0 });
+
+    expect(response.status).toBe(200);
+    const body = response.body as ApiResponse<SafeUser>;
+    expect(body.data?.employee_level).toBeNull();
+    const salaryRaw = body.data?.salary;
+    expect(salaryRaw).toBeDefined();
+    const salary = normalizeSalary(salaryRaw as SalaryValue);
+    expect(salary).toBe(expectedGeneralSalary);
+  });
+
+  test('Non-existent user → 404', async () => {
+    const response = await request(app)
+      .patch('/api/admin/users/00000000-0000-0000-0000-000000000000/role')
+      .set('Authorization', `Bearer ${makeAdminToken()}`)
+      .send({ employee_role: 'CHEF', employee_level: 1 });
+
+    expect(response.status).toBe(404);
+  });
+
+  test('Invalid employee_role → 400', async () => {
+    const payload: Record<string, unknown> = {
+      employee_role: 'INVALID',
+      employee_level: 1,
+    };
+
+    const response = await request(app)
+      .patch(`/api/admin/users/${roleTestUserId}/role`)
+      .set('Authorization', `Bearer ${makeAdminToken()}`)
+      .send(payload);
+
+    expect(response.status).toBe(400);
+  });
+
+  test('Missing fields → 400', async () => {
+    const response = await request(app)
+      .patch(`/api/admin/users/${roleTestUserId}/role`)
+      .set('Authorization', `Bearer ${makeAdminToken()}`)
+      .send({});
+
+    expect(response.status).toBe(400);
+  });
+
+  test('No token → 401', async () => {
+    const response = await request(app)
+      .patch(`/api/admin/users/${roleTestUserId}/role`)
+      .send({ employee_role: 'CHEF', employee_level: 1 });
+
+    expect(response.status).toBe(401);
+  });
+});
+
+describe('GET /api/admin/users/:id/salary-history', () => {
+  let customerHistoryUserId = '';
+  let customerHistoryEmail = '';
+
+  beforeAll(async () => {
+    customerHistoryEmail = uniqueEmail('admin-history');
+    const passwordHash = await hash('Password1', 10);
+    const user = await insertUser({
+      name: 'History Customer',
+      email: customerHistoryEmail,
+      password_hash: passwordHash,
+      role: 'CUSTOMER',
+      status: 'ACTIVE',
+      employee_role: null,
+      employee_level: null,
+      salary: null,
+    });
+
+    customerHistoryUserId = user.id;
+    testEmails.push(customerHistoryEmail);
+    createdUserIds.push(user.id);
+  });
+
+  test('Employee with history → 200 + non-empty array ordered by changed_at desc', async () => {
+    const response = await request(app)
+      .get(`/api/admin/users/${roleTestUserId}/salary-history`)
+      .set('Authorization', `Bearer ${makeAdminToken()}`);
+
+    expect(response.status).toBe(200);
+    const body = response.body as ApiResponse<Record<string, unknown>[]>;
+    expect(Array.isArray(body.data)).toBe(true);
+
+    const history = body.data ?? [];
+    expect(history.length).toBeGreaterThan(0);
+
+    if (history.length > 1) {
+      const first = new Date(history[0].changed_at as string).getTime();
+      const second = new Date(history[1].changed_at as string).getTime();
+      expect(first).toBeGreaterThanOrEqual(second);
+    }
+  });
+
+  test('Non-employee user (customer) → 200 + empty array', async () => {
+    const response = await request(app)
+      .get(`/api/admin/users/${customerHistoryUserId}/salary-history`)
+      .set('Authorization', `Bearer ${makeAdminToken()}`);
+
+    expect(response.status).toBe(200);
+    const body = response.body as ApiResponse<Record<string, unknown>[]>;
+    expect(Array.isArray(body.data)).toBe(true);
+    expect((body.data ?? []).length).toBe(0);
+  });
+
+  test('Non-existent user → 404', async () => {
+    const response = await request(app)
+      .get('/api/admin/users/00000000-0000-0000-0000-000000000000/salary-history')
+      .set('Authorization', `Bearer ${makeAdminToken()}`);
+
+    expect(response.status).toBe(404);
+  });
+
+  test('No token → 401', async () => {
+    const response = await request(app).get(
+      `/api/admin/users/${customerHistoryUserId}/salary-history`
+    );
+
+    expect(response.status).toBe(401);
+  });
+});
+
+describe('DELETE /api/admin/users/:id', () => {
+  let deleteTestUserId = '';
+  let deleteTestEmail = '';
+  let staffToken = '';
+
+  beforeAll(async () => {
+    deleteTestEmail = uniqueEmail('admin-delete');
+    const passwordHash = await hash('Password1', 10);
+    const user = await insertUser({
+      name: 'Delete Customer',
+      email: deleteTestEmail,
+      password_hash: passwordHash,
+      role: 'CUSTOMER',
+      status: 'ACTIVE',
+      employee_role: null,
+      employee_level: null,
+      salary: null,
+    });
+
+    deleteTestUserId = user.id;
+    testEmails.push(deleteTestEmail);
+
+    const staffLogin = await request(app).post('/api/auth/login').send({
+      email: 'staff@test.com',
+      password: 'Password1',
+    });
+    staffToken = staffLogin.body.token;
+  });
+
+  test('Valid delete → 200 + user no longer exists in DB', async () => {
+    const response = await request(app)
+      .delete(`/api/admin/users/${deleteTestUserId}`)
+      .set('Authorization', `Bearer ${makeAdminToken()}`);
+
+    expect(response.status).toBe(200);
+
+    const { data, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', deleteTestUserId)
+      .limit(1);
+
+    if (error) {
+      throw new Error(`Failed to fetch user by id: ${error.message}`);
+    }
+
+    const users = data as User[] | null;
+    expect(!users || users.length === 0).toBe(true);
+  });
+
+  test('Delete already deleted (non-existent) user → 404', async () => {
+    const response = await request(app)
+      .delete(`/api/admin/users/${deleteTestUserId}`)
+      .set('Authorization', `Bearer ${makeAdminToken()}`);
+
+    expect(response.status).toBe(404);
+  });
+
+  test('No token → 401', async () => {
+    const response = await request(app).delete(`/api/admin/users/${deleteTestUserId}`);
+
+    expect(response.status).toBe(401);
+  });
+
+  test('Non-admin token → 403', async () => {
+    const response = await request(app)
+      .delete(`/api/admin/users/${deleteTestUserId}`)
+      .set('Authorization', `Bearer ${staffToken}`);
+
+    expect(response.status).toBe(403);
   });
 });
 

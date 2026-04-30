@@ -8,6 +8,7 @@ import { supabase } from './config/supabase';
 import { env } from './config/env';
 import { authRoutes } from './modules/auth/auth.routes';
 import { internalRoutes } from './modules/auth/auth.internal.routes';
+import { adminRoutes } from './modules/admin/admin.routes';
 
 dotenv.config();
 
@@ -44,6 +45,7 @@ app.get('/', (_req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/internal', internalRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err);
