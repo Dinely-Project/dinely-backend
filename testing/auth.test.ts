@@ -5,6 +5,14 @@ import app from '../src/index';
 import { supabase } from '../src/config/supabase';
 import { EmployeeRole, SafeUser, User, UserRole, UserStatus } from '../src/types';
 
+const makeAdminToken = (): string => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) throw new Error('JWT_SECRET not set in test env');
+  return sign({ userId: 'test-admin-id', role: 'ADMIN' }, secret, {
+    expiresIn: '1h',
+  });
+};
+
 type ApiResponse<T> = {
   message?: string;
   data?: T;
@@ -253,7 +261,7 @@ afterAll(async () => {
       adminId
     );
   }
-});
+}, 20000);
 
 describe('POST /api/auth/login', () => {
   test('Valid admin login → 200 + token + user (no password_hash)', async () => {
@@ -464,13 +472,16 @@ describe('POST /api/auth/register (customer)', () => {
 describe('POST /api/internal/register/employee', () => {
   test('Valid CHEF L1 → 201 + user with correct salary', async () => {
     const email = uniqueEmail('employee-chef');
-    const response = await request(app).post('/api/internal/register/employee').send({
-      name: 'Chef Employee',
-      email,
-      password: 'Password1',
-      employee_role: 'CHEF',
-      employee_level: 1,
-    });
+    const response = await request(app)
+      .post('/api/internal/register/employee')
+      .set('Authorization', `Bearer ${makeAdminToken()}`)
+      .send({
+        name: 'Chef Employee',
+        email,
+        password: 'Password1',
+        employee_role: 'CHEF',
+        employee_level: 1,
+      });
 
     expect(response.status).toBe(201);
     const body = response.body as ApiResponse<SafeUser>;
@@ -489,13 +500,16 @@ describe('POST /api/internal/register/employee', () => {
 
   test('Valid GENERAL (level 0) → 201 + user with fixed salary (40000)', async () => {
     const email = uniqueEmail('employee-general');
-    const response = await request(app).post('/api/internal/register/employee').send({
-      name: 'General Employee',
-      email,
-      password: 'Password1',
-      employee_role: 'GENERAL',
-      employee_level: 0,
-    });
+    const response = await request(app)
+      .post('/api/internal/register/employee')
+      .set('Authorization', `Bearer ${makeAdminToken()}`)
+      .send({
+        name: 'General Employee',
+        email,
+        password: 'Password1',
+        employee_role: 'GENERAL',
+        employee_level: 0,
+      });
 
     expect(response.status).toBe(201);
     const body = response.body as ApiResponse<SafeUser>;
@@ -513,13 +527,16 @@ describe('POST /api/internal/register/employee', () => {
   });
 
   test('Duplicate email → 400', async () => {
-    const response = await request(app).post('/api/internal/register/employee').send({
-      name: 'Duplicate Employee',
-      email: employeeLoginEmail,
-      password: 'Password1',
-      employee_role: 'CHEF',
-      employee_level: 1,
-    });
+    const response = await request(app)
+      .post('/api/internal/register/employee')
+      .set('Authorization', `Bearer ${makeAdminToken()}`)
+      .send({
+        name: 'Duplicate Employee',
+        email: employeeLoginEmail,
+        password: 'Password1',
+        employee_role: 'CHEF',
+        employee_level: 1,
+      });
 
     expect(response.status).toBe(400);
     const body = response.body as { message?: string };
@@ -535,7 +552,10 @@ describe('POST /api/internal/register/employee', () => {
       employee_level: 1,
     };
 
-    const response = await request(app).post('/api/internal/register/employee').send(payload);
+    const response = await request(app)
+      .post('/api/internal/register/employee')
+      .set('Authorization', `Bearer ${makeAdminToken()}`)
+      .send(payload);
 
     expect(response.status).toBe(400);
     const body = response.body as { message?: string };
@@ -543,13 +563,16 @@ describe('POST /api/internal/register/employee', () => {
   });
 
   test('Level out of range for role → 400', async () => {
-    const response = await request(app).post('/api/internal/register/employee').send({
-      name: 'Invalid Level',
-      email: uniqueEmail('employee-invalid-level'),
-      password: 'Password1',
-      employee_role: 'CHEF',
-      employee_level: 10,
-    });
+    const response = await request(app)
+      .post('/api/internal/register/employee')
+      .set('Authorization', `Bearer ${makeAdminToken()}`)
+      .send({
+        name: 'Invalid Level',
+        email: uniqueEmail('employee-invalid-level'),
+        password: 'Password1',
+        employee_role: 'CHEF',
+        employee_level: 10,
+      });
 
     expect(response.status).toBe(400);
     const body = response.body as { message?: string };
@@ -557,7 +580,10 @@ describe('POST /api/internal/register/employee', () => {
   });
 
   test('Missing fields → 400', async () => {
-    const response = await request(app).post('/api/internal/register/employee').send({});
+    const response = await request(app)
+      .post('/api/internal/register/employee')
+      .set('Authorization', `Bearer ${makeAdminToken()}`)
+      .send({});
 
     expect(response.status).toBe(400);
     const body = response.body as { message?: string };
@@ -827,4 +853,8 @@ describe('JWT Middleware — Token Validation', () => {
     expect(response.status).toBe(401);
     expect((response.body as Record<string, unknown>).password_hash).toBeUndefined();
   });
+});
+
+afterAll(() => {
+  jest.useRealTimers();
 });

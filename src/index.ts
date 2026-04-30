@@ -1,28 +1,44 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import morgan from 'morgan';
 import { supabase } from './config/supabase';
-import { authRoutes } from './routes/auth.routes';
-import { internalRoutes } from './routes/internal.routes';
+import { env } from './config/env';
+import { authRoutes } from './modules/auth/auth.routes';
+import { internalRoutes } from './modules/auth/auth.internal.routes';
 
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = env.PORT;
 
-app.use(cors());
-app.use(express.json());
+app.use(cors({ origin: env.ALLOWED_ORIGIN }));
+app.use(express.json({ limit: '10kb' }));
+app.use(helmet());
+app.use(morgan(env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
-// Test Supabase connection
-supabase
-  .from('users')
-  .select('count')
-  .then(({ error }) => {
-    if (error) console.error('❌ Supabase error:', error.message);
-    else console.log('✅ Supabase connected');
-  });
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many requests, please try again later.' },
+});
+if (process.env.NODE_ENV !== 'test') {
+  app.use('/api/auth', authLimiter);
+}
 
-app.get('/', (req, res) => {
+app.get('/health', async (_req, res) => {
+  const { error } = await supabase.from('users').select('count').limit(1);
+  if (error) {
+    return res.status(503).json({ status: 'error', message: error.message });
+  }
+  return res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.get('/', (_req, res) => {
   res.json({ message: 'Dinely API is running' });
 });
 

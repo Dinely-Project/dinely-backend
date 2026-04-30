@@ -5,13 +5,13 @@ import {
   loginUser,
   registerCustomer as registerCustomerService,
   registerEmployee as registerEmployeeService,
-} from '../services/auth.service';
-import { AuthRequest } from '../types';
+} from './auth.service';
+import { AuthRequest } from '../../types';
 import {
   customerRegisterSchema,
   employeeRegisterSchema,
   loginSchema,
-} from '../validators/auth.validator';
+} from './auth.validator';
 
 const formatZodError = (error: ZodError): string =>
   error.issues
