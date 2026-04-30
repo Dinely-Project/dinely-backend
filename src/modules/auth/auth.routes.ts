@@ -3,8 +3,8 @@ import {
   getMe,
   login,
   registerCustomer,
-} from '../controllers/auth.controller';
-import { authenticate } from '../middleware/auth.middleware';
+} from './auth.controller';
+import { authenticate } from '../../middleware/auth.middleware';
 
 export const authRoutes = Router();
 
