@@ -1,11 +1,17 @@
 import {
+  bulkInsertSalaryHistory,
+  bulkUpdateEmployeeSalary,
   deleteRelatedRecords,
   deleteUserById,
   getAllUsers as getAllUsersRepo,
+  getAllSalaryConfig as getAllSalaryConfigRepo,
+  getEmployeesByRoleAndLevel,
   getSalaryConfig,
   getSalaryHistoryByEmployeeId,
   getUserById as getUserByIdRepo,
   insertSalaryHistory,
+  SalaryConfigRow,
+  updateSalaryConfigByRoleAndLevel,
   updateUserById,
 } from './admin.repository';
 import { EmployeeRole, SafeUser, User, UserRole, UserStatus } from '../../types';
@@ -77,6 +83,79 @@ export const updateEmployeeRole = async (
     new_salary: baseSalary,
     trigger_type: triggerType,
     changed_by: userId,
+  });
+
+  return toSafeUser(updated);
+};
+
+export const getSalaryConfigRows = async (): Promise<SalaryConfigRow[]> => {
+  return getAllSalaryConfigRepo();
+};
+
+export const updateSalaryConfig = async (
+  role: EmployeeRole,
+  levelParam: string,
+  base_salary: number,
+  adminId: string
+): Promise<SalaryConfigRow> => {
+  const level: number | null = levelParam === 'null' ? null : parseInt(levelParam, 10);
+  const existing = await getSalaryConfig(role, level);
+  if (!existing) {
+    throw new Error('Salary config not found');
+  }
+
+  const updated = await updateSalaryConfigByRoleAndLevel(
+    role,
+    level,
+    base_salary,
+    adminId
+  );
+  const employees = await getEmployeesByRoleAndLevel(role, level);
+  if (employees.length === 0) {
+    return updated;
+  }
+
+  await bulkUpdateEmployeeSalary(role, level, base_salary);
+
+  const historyInserts = employees.map((emp) => ({
+    employee_id: emp.id,
+    old_salary: emp.salary ?? 0,
+    new_salary: base_salary,
+    trigger_type: 'CONFIG_UPDATE',
+    changed_by: adminId,
+    reason: `Base salary config updated for ${role}${level !== null ? ` L${level}` : ''}`,
+  }));
+
+  await bulkInsertSalaryHistory(historyInserts);
+
+  return updated;
+};
+
+export const updateSalary = async (
+  userId: string,
+  salary: number,
+  reason: string | undefined,
+  adminId: string
+): Promise<SafeUser> => {
+  const user = await getUserByIdRepo(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  if (user.role !== 'EMPLOYEE') {
+    throw new Error('User is not an employee');
+  }
+
+  const oldSalary = user.salary ?? 0;
+  const updated = await updateUserById(userId, { salary });
+
+  await insertSalaryHistory({
+    employee_id: userId,
+    old_salary: oldSalary,
+    new_salary: salary,
+    trigger_type: 'MANUAL_OVERRIDE',
+    changed_by: adminId,
+    reason: reason ?? null,
   });
 
   return toSafeUser(updated);
