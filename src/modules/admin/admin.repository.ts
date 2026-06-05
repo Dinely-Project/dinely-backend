@@ -11,6 +11,15 @@ type OrderRow = {
   id: string;
 };
 
+export type SalaryConfigRow = {
+  id: string;
+  employee_role: EmployeeRole;
+  employee_level: number | null;
+  base_salary: number;
+  configured_by: string;
+  updated_at: string;
+};
+
 export const getAllUsers = async (filters: UserFilters = {}): Promise<User[]> => {
   let query = supabase.from('users').select('*');
 
@@ -87,17 +96,139 @@ export const getSalaryConfig = async (
   return rows && rows.length > 0 ? rows[0] : null;
 };
 
+export const getAllSalaryConfig = async (): Promise<SalaryConfigRow[]> => {
+  const { data, error } = await supabase
+    .from('role_salary_config')
+    .select('*')
+    .order('employee_role')
+    .order('employee_level');
+
+  if (error) {
+    throw new Error(`Failed to fetch salary configurations: ${error.message}`);
+  }
+
+  return (data ?? []) as SalaryConfigRow[];
+};
+
+export const updateSalaryConfigByRoleAndLevel = async (
+  employee_role: EmployeeRole,
+  level: number | null,
+  base_salary: number,
+  configured_by: string
+): Promise<SalaryConfigRow> => {
+  let query = supabase
+    .from('role_salary_config')
+    .update({
+      base_salary,
+      configured_by,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('employee_role', employee_role);
+
+  if (level === null) {
+    query = query.is('employee_level', null);
+  } else {
+    query = query.eq('employee_level', level);
+  }
+
+  const { data, error } = await query.select('*');
+
+if (error) {
+  throw new Error(`Failed to update salary configuration: ${error.message}`);
+}
+
+const rows = data as SalaryConfigRow[] | null;
+if (!rows || rows.length === 0) {
+  throw new Error('Failed to update salary configuration: No data returned');
+}
+
+return rows[0];
+
+};
+
+export const getEmployeesByRoleAndLevel = async (
+  employee_role: EmployeeRole,
+  level: number | null
+): Promise<User[]> => {
+  let query = supabase
+    .from('users')
+    .select('*')
+    .eq('role', 'EMPLOYEE')
+    .eq('employee_role', employee_role);
+
+  if (level === null) {
+    query = query.is('employee_level', null);
+  } else {
+    query = query.eq('employee_level', level);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw new Error(`Failed to fetch employees by role and level: ${error.message}`);
+  }
+
+  const rows = data as User[] | null;
+  return rows ? rows.map((row) => UserSchema.parse(row)) : [];
+};
+
+export const bulkUpdateEmployeeSalary = async (
+  employee_role: EmployeeRole,
+  level: number | null,
+  salary: number
+): Promise<void> => {
+  let query = supabase
+    .from('users')
+    .update({ salary })
+    .eq('role', 'EMPLOYEE')
+    .eq('employee_role', employee_role);
+
+  if (level === null) {
+    query = query.is('employee_level', null);
+  } else {
+    query = query.eq('employee_level', level);
+  }
+
+  const { error } = await query;
+
+  if (error) {
+    throw new Error(`Failed to bulk update employee salaries: ${error.message}`);
+  }
+};
+
 export const insertSalaryHistory = async (payload: {
   employee_id: string;
   old_salary: number;
   new_salary: number;
   trigger_type: string;
   changed_by: string;
+  reason?: string | null;
 }): Promise<void> => {
   const { error } = await supabase.from('salary_history').insert(payload);
 
   if (error) {
     throw new Error(`Failed to record salary history: ${error.message}`);
+  }
+};
+
+export const bulkInsertSalaryHistory = async (
+  records: {
+    employee_id: string;
+    old_salary: number;
+    new_salary: number;
+    trigger_type: string;
+    changed_by: string;
+    reason?: string | null;
+  }[]
+): Promise<void> => {
+  if (records.length === 0) {
+    return;
+  }
+
+  const { error } = await supabase.from('salary_history').insert(records);
+
+  if (error) {
+    throw new Error(`Failed to bulk record salary history: ${error.message}`);
   }
 };
 
