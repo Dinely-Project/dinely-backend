@@ -17,3 +17,24 @@ export const UserSchema = z.object({
   created_at: z.string(),
   updated_at: z.string(),
 });
+
+export const MenuCategorySchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  description: z.string().nullable(),
+  display_order: z.number().nullable(),
+  created_at: z.string(),
+  updated_at: z.string().optional(),
+});
+
+export const MenuItemSchema = z.object({
+  id: z.string().uuid(),
+  category_id: z.string().uuid(),
+  name: z.string(),
+  description: z.string().nullable(),
+  price: z.number(),
+  image_url: z.string().nullable(),
+  is_available: z.boolean(),
+  created_at: z.string(),
+  updated_at: z.string().optional(),
+});
