@@ -16,9 +16,6 @@ export const placeOrderSchema = z.object({
 // ── Staff: advance / cancel an order ─────────────────────────────────────────
 export const updateOrderStatusSchema = z.object({
   status: z.enum(['PREPARING', 'READY', 'FINISHED', 'CANCELLED'], {
-    errorMap: () => ({
-      message:
-        'Status must be one of: PREPARING, READY, FINISHED, CANCELLED',
-    }),
+    message: 'Status must be one of: PREPARING, READY, FINISHED, CANCELLED',
   }),
 });

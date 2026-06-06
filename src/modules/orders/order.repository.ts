@@ -105,7 +105,7 @@ export const getOrderDetail = async (id: string): Promise<OrderDetail | null> =>
   // 1. Fetch order with customer info
   const { data: orderData, error: orderError } = await supabase
     .from('orders')
-    .select('*, users(name, email)')
+    .select('*, users!customer_id(name, email)')
     .eq('id', id)
     .limit(1);
 
@@ -201,7 +201,7 @@ export const getActiveOrdersByCustomer = async (
 ): Promise<OrderDetail[]> => {
   const { data, error } = await supabase
     .from('orders')
-    .select('*, users(name, email)')
+    .select('*, users!customer_id(name, email)')
     .eq('customer_id', customerId)
     .not('status', 'in', '("FINISHED","CANCELLED")')
     .order('created_at', { ascending: false });
@@ -221,7 +221,7 @@ export const getOrderHistoryByCustomer = async (
 ): Promise<OrderDetail[]> => {
   const { data, error } = await supabase
     .from('orders')
-    .select('*, users(name, email)')
+    .select('*, users!customer_id(name, email)')
     .eq('customer_id', customerId)
     .in('status', ['FINISHED', 'CANCELLED'])
     .order('created_at', { ascending: false });
@@ -244,7 +244,7 @@ export const getOrderHistoryByCustomer = async (
 export const getAllActiveOrders = async (): Promise<OrderSummary[]> => {
   const { data, error } = await supabase
     .from('orders')
-    .select('*, users(name)')
+    .select('*, users!customer_id(name)')
     .in('status', ['RECEIVED', 'PREPARING', 'READY'])
     .order('created_at', { ascending: true });
 
@@ -301,6 +301,7 @@ export const insertReadyNotification = async (
 ): Promise<void> => {
   const { error } = await supabase.from('notifications').insert({
     user_id: customerId,
+    type: 'ORDER_READY',
     message: 'Your order is ready for pickup!',
     reference_id: orderId,
     is_read: false,
@@ -365,7 +366,7 @@ async function enrichOrders(rawOrders: RawOrderRow[]): Promise<OrderDetail[]> {
 
   // Group history by order_id
   const historyByOrder = ((historyData ?? []) as unknown[]).reduce(
-    (acc, row) => {
+    (acc: Record<string, OrderStatusHistory[]>, row) => {
       const parsed = OrderStatusHistorySchema.parse(row);
       acc[parsed.order_id] = [...(acc[parsed.order_id] ?? []), parsed];
       return acc;

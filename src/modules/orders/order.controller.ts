@@ -25,7 +25,7 @@ const formatZodError = (error: ZodError): string =>
     .join('; ');
 
 /** Known service errors → HTTP status codes. */
-const ORDER_ERROR_STATUS: Record<string, 400 | 403 | 404 | 409> = {
+const ORDER_ERROR_STATUS: Record<string, 400 | 403 | 404 | 409 | 500> = {
   'Order not found': 404,
   'Order created but could not be retrieved': 500,
   'Order updated but could not be retrieved': 500,
