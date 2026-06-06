@@ -1,3 +1,4 @@
+
 import { z } from 'zod';
 
 export const UserRoleSchema = z.enum(['ADMIN', 'STAFF', 'EMPLOYEE', 'CUSTOMER']);
@@ -37,4 +38,54 @@ export const MenuItemSchema = z.object({
   is_available: z.boolean(),
   created_at: z.string(),
   updated_at: z.string().optional(),
+});
+
+//Order schemas
+
+export const OrderStatusSchema = z.enum([
+  'RECEIVED',
+  'PREPARING',
+  'READY',
+  'FINISHED',
+  'CANCELLED',
+]);
+
+export const OrderSchema = z.object({
+  id: z.string().uuid(),
+  customer_id: z.string().uuid(),
+  status: OrderStatusSchema,
+  total_price: z.number(),
+  notes: z.string().nullable(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
+
+export const OrderItemSchema = z.object({
+  id: z.string().uuid(),
+  order_id: z.string().uuid(),
+  menu_item_id: z.string().uuid(),
+  quantity: z.number().int().min(1),
+  unit_price: z.number(),
+  created_at: z.string(),
+});
+
+export const OrderStatusHistorySchema = z.object({
+  id: z.string().uuid(),
+  order_id: z.string().uuid(),
+  old_status: OrderStatusSchema.nullable(),
+  new_status: OrderStatusSchema,
+  changed_by: z.string().uuid(),
+  changed_at: z.string(),
+});
+
+//Notifications
+ 
+export const NotificationSchema = z.object({
+  id: z.string().uuid(),
+  user_id: z.string().uuid(),
+  type: z.string(),
+  message: z.string(),
+  is_read: z.boolean(),
+  reference_id: z.string().uuid().nullable(),
+  created_at: z.string(),
 });
