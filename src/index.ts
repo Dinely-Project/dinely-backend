@@ -1,3 +1,8 @@
+// ═══════════════════════════════════════════════════════════════════════════
+// FILE: src/index.ts  — complete replacement
+// New lines marked with  ← NEW
+// ═══════════════════════════════════════════════════════════════════════════
+
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -10,6 +15,8 @@ import { authRoutes } from './modules/auth/auth.routes';
 import { internalRoutes } from './modules/auth/auth.internal.routes';
 import { adminRoutes } from './modules/admin/admin.routes';
 import { menuRoutes } from './modules/menu/menu.routes';
+import { orderRoutes } from './modules/orders/order.routes';                           // ← NEW (Module 05)
+import { notificationRoutes } from './modules/notifications/notification.routes';   
 
 dotenv.config();
 
@@ -48,6 +55,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/internal', internalRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/menu', menuRoutes);
+app.use('/api/orders', orderRoutes);                       
+app.use('/api/notifications', notificationRoutes);         
 
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err);
