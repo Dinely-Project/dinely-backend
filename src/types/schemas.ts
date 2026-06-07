@@ -19,6 +19,21 @@ export const UserSchema = z.object({
   updated_at: z.string(),
 });
 
+export const RequestTypeSchema = z.enum(['PROMOTION', 'SALARY_INCREASE', 'RESIGNATION']);
+export const RequestStatusSchema = z.enum(['PENDING', 'APPROVED', 'DECLINED']);
+
+export const EmployeeRequestSchema = z.object({
+  id: z.string().uuid(),
+  employee_id: z.string().uuid(),
+  type: RequestTypeSchema,
+  cover_letter: z.string().nullable(),
+  status: RequestStatusSchema,
+  admin_feedback: z.string().nullable(),
+  reviewed_by: z.string().uuid().nullable(),
+  reviewed_at: z.string().nullable(),
+  created_at: z.string(),
+});
+
 export const MenuCategorySchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
@@ -57,7 +72,7 @@ export const OrderSchema = z.object({
   total_price: z.number(),
   notes: z.string().nullable(),
   created_at: z.string(),
-  updated_at: z.string().nullable().optional(),
+  updated_at: z.string(),
 });
 
 export const OrderItemSchema = z.object({
