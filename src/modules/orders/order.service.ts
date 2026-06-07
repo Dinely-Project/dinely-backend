@@ -9,7 +9,8 @@ import {
   insertOrder,
   insertOrderItems,
   insertOrderStatusHistory,
-  insertReadyNotification,
+  notifyCustomerOrderStatus,
+  notifyStaffNewOrder,
   updateOrderStatus,
 } from './order.repository';
 
@@ -81,12 +82,16 @@ export const placeOrder = async (
 
   // 5. Insert all order items with their unit prices locked at time of order
   await insertOrderItems(
-    items.map((item) => ({
-      order_id: order.id,
-      menu_item_id: item.menu_item_id,
-      quantity: item.quantity,
-      unit_price: menuMap.get(item.menu_item_id)!.price,
-    }))
+    items.map((item) => {
+      const price = menuMap.get(item.menu_item_id)!.price;
+      return {
+        order_id: order.id,
+        menu_item_id: item.menu_item_id,
+        quantity: item.quantity,
+        unit_price: price,
+        subtotal: price * item.quantity,
+      };
+    })
   );
 
   // 6. Log the initial status to order_status_history
@@ -96,6 +101,9 @@ export const placeOrder = async (
     new_status: 'RECEIVED',
     changed_by: customerId,
   });
+
+  // 7. Notify staff of the new order
+  await notifyStaffNewOrder(order.id);
 
   // 7. Return full order detail
   const detail = await getOrderDetail(order.id);
@@ -188,10 +196,8 @@ export const advanceOrderStatus = async (
     changed_by: staffId,
   });
 
-  // 5. If the order just became READY, create a notification for the customer
-  if (newStatus === 'READY') {
-    await insertReadyNotification(order.customer_id, orderId);
-  }
+  // 5. Create a notification for the customer about the status update
+  await notifyCustomerOrderStatus(order.customer_id, orderId, newStatus);
 
   // 6. Return updated full detail
   const detail = await getOrderDetail(orderId);

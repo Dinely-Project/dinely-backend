@@ -66,7 +66,8 @@ export const OrderItemSchema = z.object({
   menu_item_id: z.string().uuid(),
   quantity: z.number().int().min(1),
   unit_price: z.number(),
-  created_at: z.string(),
+  subtotal: z.number(),
+  created_at: z.string().optional(),
 });
 
 export const OrderStatusHistorySchema = z.object({
