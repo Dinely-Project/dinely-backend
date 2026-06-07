@@ -56,6 +56,7 @@ export const insertOrderItems = async (
     menu_item_id: string;
     quantity: number;
     unit_price: number;
+    subtotal: number;
   }>
 ): Promise<OrderItem[]> => {
   const { data, error } = await supabase
@@ -294,22 +295,56 @@ export const getAllActiveOrders = async (): Promise<OrderSummary[]> => {
 // NOTIFICATIONS
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Insert a notification record for a customer when their order is READY. */
-export const insertReadyNotification = async (
+/** Notify all staff and admins of a new order. */
+export const notifyStaffNewOrder = async (orderId: string): Promise<void> => {
+  const { data: staffUsers, error: staffError } = await supabase
+    .from('users')
+    .select('id')
+    .in('role', ['STAFF', 'ADMIN']);
+
+  if (staffError) {
+    console.error(`Failed to fetch staff for notification: ${staffError.message}`);
+    return;
+  }
+
+  const notifications = (staffUsers ?? []).map((u) => ({
+    user_id: u.id,
+    type: 'NEW_ORDER',
+    message: `A new order (#${orderId.slice(0, 8).toUpperCase()}) has been placed.`,
+    reference_id: orderId,
+    is_read: false,
+  }));
+
+  if (notifications.length > 0) {
+    const { error } = await supabase.from('notifications').insert(notifications);
+    if (error) {
+      console.error(`Failed to create staff notifications: ${error.message}`);
+    }
+  }
+};
+
+/** Insert a notification record for a customer when their order status changes. */
+export const notifyCustomerOrderStatus = async (
   customerId: string,
-  orderId: string
+  orderId: string,
+  status: string
 ): Promise<void> => {
+  let message = `Your order status has been updated to ${status}.`;
+  if (status === 'PREPARING') message = 'Your order is now being prepared!';
+  if (status === 'READY') message = 'Your order is ready for pickup!';
+  if (status === 'FINISHED') message = 'Your order has been completed. Enjoy!';
+  if (status === 'CANCELLED') message = 'Your order has been cancelled.';
+
   const { error } = await supabase.from('notifications').insert({
     user_id: customerId,
-    type: 'ORDER_READY',
-    message: 'Your order is ready for pickup!',
+    type: `ORDER_${status}`,
+    message,
     reference_id: orderId,
     is_read: false,
   });
 
   if (error) {
-    // Non-fatal: log but do not throw — the status update already succeeded
-    console.error(`Failed to create ready notification: ${error.message}`);
+    console.error(`Failed to create customer notification: ${error.message}`);
   }
 };
 
