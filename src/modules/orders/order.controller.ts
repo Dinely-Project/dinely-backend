@@ -84,7 +84,24 @@ export const createOrder = async (req: AuthRequest, res: Response): Promise<Resp
     );
     return res.status(201).json({ message: 'Order placed', data: order });
   } catch (error) {
-    return handleServiceError(res, error);
+    console.error("CREATE ORDER ERROR:", error);
+    
+    // Pass to existing handler for 400s (domain validation errors)
+    if (error instanceof Error) {
+      if (
+        ORDER_ERROR_STATUS[error.message] ||
+        error.message.startsWith('Cannot transition') ||
+        error.message.includes('not found') ||
+        error.message.includes('unavailable') ||
+        error.message.includes('Menu item')
+      ) {
+        return handleServiceError(res, error);
+      }
+    }
+
+    return res.status(500).json({
+      message: error instanceof Error ? error.message : "Internal server error"
+    });
   }
 };
 

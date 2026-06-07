@@ -57,7 +57,7 @@ export const OrderSchema = z.object({
   total_price: z.number(),
   notes: z.string().nullable(),
   created_at: z.string(),
-  updated_at: z.string(),
+  updated_at: z.string().nullable().optional(),
 });
 
 export const OrderItemSchema = z.object({
