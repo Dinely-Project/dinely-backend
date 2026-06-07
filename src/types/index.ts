@@ -32,6 +32,26 @@ export interface AuthRequest extends Request {
   user?: JwtPayload;
 }
 
+export type RequestType = 'PROMOTION' | 'SALARY_INCREASE' | 'RESIGNATION';
+export type RequestStatus = 'PENDING' | 'APPROVED' | 'DECLINED';
+
+export interface EmployeeRequest {
+  id: string;
+  employee_id: string;
+  type: RequestType;
+  cover_letter: string | null;
+  status: RequestStatus;
+  admin_feedback: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+export interface EmployeeRequestWithEmployee extends EmployeeRequest {
+  employee_name: string;
+  employee_email: string;
+}
+
 export interface MenuCategory {
   id: string;
   name: string;
