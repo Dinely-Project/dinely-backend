@@ -105,3 +105,24 @@ export const NotificationSchema = z.object({
   reference_id: z.string().uuid().nullable(),
   created_at: z.string(),
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Invoices
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const InvoiceStatusSchema = z.enum(['ISSUED', 'PAID', 'REFUNDED', 'VOID']);
+
+export const InvoiceSchema = z.object({
+  id: z.string().uuid(),
+  invoice_number: z.string(),
+  order_id: z.string().uuid(),
+  customer_id: z.string().uuid(),
+  total_amount: z.number(),
+  status: InvoiceStatusSchema,
+  pdf_url: z.string().nullable(),
+  pdf_generated_at: z.string().nullable(),
+  notes: z.string().nullable(),
+  issued_at: z.string(),
+  created_at: z.string(),
+  updated_at: z.string(),
+});
