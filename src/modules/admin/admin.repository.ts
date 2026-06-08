@@ -293,6 +293,15 @@ export const deleteRelatedRecords = async (userId: string): Promise<void> => {
       throw new Error(`Failed to delete order status history: ${statusError.message}`);
     }
 
+    // Delete invoices before order_items and orders (FK: invoices.order_id RESTRICT)
+    const { error: invoicesError } = await supabase
+      .from('invoices')
+      .delete()
+      .in('order_id', orderIds);
+    if (invoicesError) {
+      throw new Error(`Failed to delete invoices: ${invoicesError.message}`);
+    }
+
     const { error: itemsError } = await supabase
       .from('order_items')
       .delete()

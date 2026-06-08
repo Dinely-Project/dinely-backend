@@ -8,6 +8,8 @@ const envSchema = z.object({
   PORT: z.string().default('5000'),
   ALLOWED_ORIGIN: z.string().default('*'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  // Supabase Storage bucket name for generated invoice PDFs
+  INVOICE_PDF_BUCKET: z.string().min(1, 'INVOICE_PDF_BUCKET is required').default('invoice-pdfs'),
 });
 
 const parsed = envSchema.safeParse(process.env);
