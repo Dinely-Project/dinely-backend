@@ -93,7 +93,7 @@ export interface OrderItem {
   menu_item_id: string;
   quantity: number;
   unit_price: number;
-  created_at: string;
+  created_at?: string;
 }
 
 export interface OrderStatusHistory {
@@ -136,4 +136,49 @@ export interface Notification {
   is_read: boolean;
   reference_id: string | null;
   created_at: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// INVOICES
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type InvoiceStatus = 'ISSUED' | 'PAID' | 'REFUNDED' | 'VOID';
+
+export interface Invoice {
+  id: string;
+  invoice_number: string;
+  order_id: string;
+  customer_id: string;
+  total_amount: number;
+  status: InvoiceStatus;
+  pdf_url: string | null;
+  pdf_generated_at: string | null;
+  notes: string | null;
+  issued_at: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface InvoiceLineItem {
+  name: string;
+  quantity: number;
+  unit_price: number;
+  subtotal: number;
+}
+
+/** Full invoice detail, including customer info and line items (joined from orders/order_items). */
+export interface InvoiceDetail extends Invoice {
+  customer_name: string;
+  customer_email: string;
+  items: InvoiceLineItem[];
+}
+
+/** Lightweight summary row used in list endpoints. */
+export interface InvoiceListItem {
+  id: string;
+  invoice_number: string;
+  order_id: string;
+  total_amount: number;
+  status: InvoiceStatus;
+  issued_at: string;
 }
