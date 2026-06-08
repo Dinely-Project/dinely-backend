@@ -13,6 +13,7 @@ import {
   notifyStaffNewOrder,
   updateOrderStatus,
 } from './order.repository';
+import { createInvoiceForOrder } from '../invoices/invoice.service';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // STATUS LIFECYCLE
@@ -199,7 +200,20 @@ export const advanceOrderStatus = async (
   // 5. Create a notification for the customer about the status update
   await notifyCustomerOrderStatus(order.customer_id, orderId, newStatus);
 
-  // 6. Return updated full detail
+  // 6. When the order is FINISHED, auto-create the invoice record.
+  //    Failures are caught and logged — they must NOT roll back the status transition.
+  if (newStatus === 'FINISHED') {
+    try {
+      await createInvoiceForOrder(orderId, order.customer_id, order.total_price);
+    } catch (invoiceError) {
+      console.error(
+        `[Invoice] Auto-create failed for order ${orderId}:`,
+        invoiceError instanceof Error ? invoiceError.message : invoiceError
+      );
+    }
+  }
+
+  // 7. Return updated full detail
   const detail = await getOrderDetail(orderId);
   if (!detail) {
     throw new Error('Order updated but could not be retrieved');
