@@ -20,9 +20,10 @@ import {
 
 export const adminRoutes = Router();
 
+adminRoutes.get('/analytics', authenticate, authorize('ADMIN', 'STAFF'), getAnalyticsHandler);
+
 adminRoutes.use(authenticate, authorize('ADMIN'));
 
-adminRoutes.get('/analytics', getAnalyticsHandler);
 adminRoutes.get('/orders', getAllOrdersHandler);
 adminRoutes.get('/orders/:id', getOrderDetailHandler);
 adminRoutes.patch('/me/email', updateOwnEmailHandler);
