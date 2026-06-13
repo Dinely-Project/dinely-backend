@@ -3,10 +3,15 @@ import { authenticate } from '../../middleware/auth.middleware';
 import { authorize } from '../../middleware/rbac.middleware';
 import {
   deleteUser,
+  getAllOrdersHandler,
+  getAnalyticsHandler,
+  getOrderDetailHandler,
   getSalaryConfigHandler,
   getSalaryHistory,
   getUser,
   getUsers,
+  updateOwnEmailHandler,
+  updateOwnPasswordHandler,
   updateRole,
   updateSalary,
   updateSalaryConfig,
@@ -17,6 +22,11 @@ export const adminRoutes = Router();
 
 adminRoutes.use(authenticate, authorize('ADMIN'));
 
+adminRoutes.get('/analytics', getAnalyticsHandler);
+adminRoutes.get('/orders', getAllOrdersHandler);
+adminRoutes.get('/orders/:id', getOrderDetailHandler);
+adminRoutes.patch('/me/email', updateOwnEmailHandler);
+adminRoutes.patch('/me/password', updateOwnPasswordHandler);
 adminRoutes.get('/salary-config', getSalaryConfigHandler);
 adminRoutes.put('/salary-config/:role/:level', updateSalaryConfig);
 adminRoutes.get('/users', getUsers);

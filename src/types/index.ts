@@ -126,6 +126,62 @@ export interface OrderSummary extends Order {
   item_count: number;
 }
 
+export interface AdminOrderSummary extends Order {
+  customer_name: string;
+  customer_email: string;
+  item_count: number;
+}
+
+export interface AdminOrdersListResult {
+  data: AdminOrderSummary[];
+  meta: { total: number; limit: number; offset: number };
+}
+
+export interface DailyRevenueBucket {
+  date: string;
+  revenue: number;
+  order_count: number;
+}
+
+export interface TopSellingItem {
+  menu_item_id: string;
+  name: string;
+  total_quantity_sold: number;
+  total_revenue: number;
+}
+
+export interface CategoryRevenue {
+  category_id: string;
+  category_name: string;
+  total_revenue: number;
+  order_count: number;
+}
+
+export interface AnalyticsSummary {
+  period: { from: string; to: string };
+  revenue: {
+    total: number;
+    daily_average: number;
+    by_day: DailyRevenueBucket[];
+  };
+  orders: {
+    total: number;
+    by_status: Record<OrderStatus, number>;
+    completion_rate: number;
+  };
+  top_items: TopSellingItem[];
+  customers: {
+    total_registered: number;
+    new_in_period: number;
+    active_in_period: number;
+  };
+  employees: {
+    total: number;
+    by_role: Partial<Record<EmployeeRole, number>>;
+  };
+  revenue_by_category: CategoryRevenue[];
+}
+
 //Notifications
  
 export interface Notification {
