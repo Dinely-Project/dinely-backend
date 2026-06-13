@@ -2,10 +2,15 @@ import { Request, Response } from 'express';
 import { ZodError, z } from 'zod';
 import {
   deleteUser as deleteUserService,
+  getAllOrdersForAdmin as getAllOrdersForAdminService,
   getAllUsers as getAllUsersService,
+  getAnalyticsSummary as getAnalyticsSummaryService,
   getEmployeeSalaryHistory as getEmployeeSalaryHistoryService,
+  getOrderDetailForAdmin as getOrderDetailForAdminService,
   getSalaryConfigRows as getSalaryConfigRowsService,
   getUserById as getUserByIdService,
+  updateAdminEmail as updateAdminEmailService,
+  updateAdminPassword as updateAdminPasswordService,
   updateSalary as updateSalaryService,
   updateSalaryConfig as updateSalaryConfigService,
   updateEmployeeRole as updateEmployeeRoleService,
@@ -14,8 +19,12 @@ import {
 import { AuthRequest } from '../../types';
 import { UserRoleSchema, UserStatusSchema } from '../../types/schemas';
 import {
+  adminOrdersQuerySchema,
+  analyticsQuerySchema,
   salaryConfigParamsSchema,
   updateEmployeeRoleSchema,
+  updateOwnEmailSchema,
+  updateOwnPasswordSchema,
   updateSalaryConfigSchema,
   updateSalarySchema,
   updateStatusSchema,
@@ -37,10 +46,17 @@ const filtersSchema = z.object({
   status: UserStatusSchema.optional(),
 });
 
+const uuidParamSchema = z.string().uuid();
+
 const ADMIN_ERROR_STATUS: Record<string, 400 | 404> = {
   'User not found': 404,
+  'Admin user not found': 404,
+  'Order not found': 404,
   'Salary config not found': 400,
   'User is not an employee': 400,
+  'Incorrect password': 400,
+  'Email already in use': 400,
+  'Invalid date range': 400,
 };
 
 const handleServiceError = (res: Response, error: unknown): Response => {
@@ -77,6 +93,58 @@ export const getUser = async (req: Request, res: Response): Promise<Response> =>
   try {
     const user = await getUserByIdService(getParamId(req));
     return res.status(200).json({ data: user });
+  } catch (error: unknown) {
+    return handleServiceError(res, error);
+  }
+};
+
+export const getAllOrdersHandler = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const parsed = adminOrdersQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ message: formatZodError(parsed.error) });
+  }
+
+  try {
+    const result = await getAllOrdersForAdminService(parsed.data);
+    return res.status(200).json(result);
+  } catch (error: unknown) {
+    return handleServiceError(res, error);
+  }
+};
+
+export const getOrderDetailHandler = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const orderId = getParamId(req);
+  const parsedId = uuidParamSchema.safeParse(orderId);
+  if (!parsedId.success) {
+    return res.status(404).json({ message: 'Order not found' });
+  }
+
+  try {
+    const order = await getOrderDetailForAdminService(parsedId.data);
+    return res.status(200).json({ data: order });
+  } catch (error: unknown) {
+    return handleServiceError(res, error);
+  }
+};
+
+export const getAnalyticsHandler = async (
+  req: Request,
+  res: Response
+): Promise<Response> => {
+  const parsed = analyticsQuerySchema.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({ message: formatZodError(parsed.error) });
+  }
+
+  try {
+    const summary = await getAnalyticsSummaryService(parsed.data);
+    return res.status(200).json({ data: summary });
   } catch (error: unknown) {
     return handleServiceError(res, error);
   }
@@ -174,6 +242,56 @@ export const updateSalary = async (
       req.user!.userId
     );
     return res.status(200).json({ message: 'Salary updated', data: user });
+  } catch (error: unknown) {
+    return handleServiceError(res, error);
+  }
+};
+
+export const updateOwnEmailHandler = async (
+  req: AuthRequest,
+  res: Response
+): Promise<Response> => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  const parsed = updateOwnEmailSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ message: formatZodError(parsed.error) });
+  }
+
+  try {
+    const user = await updateAdminEmailService(
+      req.user.userId,
+      parsed.data.email,
+      parsed.data.current_password
+    );
+    return res.status(200).json({ message: 'Email updated', data: user });
+  } catch (error: unknown) {
+    return handleServiceError(res, error);
+  }
+};
+
+export const updateOwnPasswordHandler = async (
+  req: AuthRequest,
+  res: Response
+): Promise<Response> => {
+  if (!req.user) {
+    return res.status(401).json({ message: 'Unauthorized' });
+  }
+
+  const parsed = updateOwnPasswordSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ message: formatZodError(parsed.error) });
+  }
+
+  try {
+    await updateAdminPasswordService(
+      req.user.userId,
+      parsed.data.current_password,
+      parsed.data.new_password
+    );
+    return res.status(200).json({ message: 'Password updated' });
   } catch (error: unknown) {
     return handleServiceError(res, error);
   }
