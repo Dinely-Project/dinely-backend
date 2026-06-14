@@ -10,6 +10,8 @@ export interface User {
   name: string;
   email: string;
   password_hash: string;
+  phone: string | null;
+
   role: UserRole;
   employee_role: EmployeeRole | null;
   employee_level: number | null;

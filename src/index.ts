@@ -19,6 +19,7 @@ import { orderRoutes } from './modules/orders/order.routes';                    
 import { notificationRoutes } from './modules/notifications/notification.routes';   
 import { invoiceRoutes } from './modules/invoices/invoice.routes';                   // ← NEW (Invoice Module)
 import { employeeRequestRoutes } from './modules/employee-requests/employee-requests.routes';
+import { customerRoutes } from './modules/customer/customer.routes';
 
 dotenv.config();
 
@@ -61,6 +62,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/notifications', notificationRoutes);         
 app.use('/api/invoices', invoiceRoutes);                   // ← Invoice Module
 app.use('/api/employee-requests', employeeRequestRoutes);
+app.use('/api/customers', customerRoutes);
 
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error(err);

@@ -10,6 +10,8 @@ export const UserSchema = z.object({
   name: z.string(),
   email: z.string().email(),
   password_hash: z.string(),
+  phone: z.string().nullable().default(null),
+
   role: UserRoleSchema,
   employee_role: EmployeeRoleSchema.nullable(),
   employee_level: z.number().nullable(),
