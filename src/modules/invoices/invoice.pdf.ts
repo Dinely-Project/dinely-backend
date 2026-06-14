@@ -6,7 +6,7 @@ import { InvoiceDetail } from '../../types';
 // ─────────────────────────────────────────────────────────────────────────────
 
 const formatCurrency = (amount: number): string =>
-  `$${amount.toFixed(2)}`;
+  `LKR ${amount.toFixed(2)}`;
 
 const formatDate = (iso: string): string => {
   const date = new Date(iso);
