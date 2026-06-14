@@ -106,7 +106,7 @@ export const getMe = async (req: AuthRequest, res: Response): Promise<Response> 
 
   try {
     const user = await getMeService(req.user.userId);
-return res.status(200).json({ user });
+    return res.status(200).json({ data: user, user });
   } catch (error) {
     return handleServiceError(res, error);
   }
