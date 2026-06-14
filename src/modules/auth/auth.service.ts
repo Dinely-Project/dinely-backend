@@ -60,16 +60,17 @@ export const registerCustomer = async (
 
   let createdUser: User;
   try {
-    createdUser = await createUser({
-      name,
-      email,
-      password_hash: passwordHash,
-      role: 'CUSTOMER',
-      status: 'ACTIVE',
-      employee_role: null,
-      employee_level: null,
-      salary: null,
-    });
+   createdUser = await createUser({
+  name,
+  email,
+  password_hash: passwordHash,
+  phone: null,
+  role: 'CUSTOMER',
+  status: 'ACTIVE',
+  employee_role: null,
+  employee_level: null,
+  salary: null,
+});
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No data returned';
     const normalized = message.startsWith('Failed to create user: ')
@@ -99,15 +100,16 @@ export const registerEmployee = async (
   let newEmployee: User;
   try {
     newEmployee = await createUser({
-      name,
-      email,
-      password_hash: passwordHash,
-      role: 'EMPLOYEE',
-      status: 'PENDING',
-      employee_role,
-      employee_level: level,
-      salary: null,
-    });
+  name,
+  email,
+  password_hash: passwordHash,
+  phone: null,
+  role: 'EMPLOYEE',
+  status: 'PENDING',
+  employee_role,
+  employee_level: level,
+  salary: null,
+});
   } catch (error) {
     const message = error instanceof Error ? error.message : 'No data returned';
     const normalized = message.startsWith('Failed to create user: ')
